@@ -14,6 +14,9 @@
 #include <iomanip>
 #include <sstream>
 
+using boost::asio::ip::tcp;
+
+//funções auxiliares
 std::time_t string_to_time_t(const std::string& time_string) {
     std::tm tm = {};
     std::istringstream ss(time_string);
@@ -44,10 +47,7 @@ std::vector<std::string> split_string(std::string str, const char* op) {
 	return result;
 }
 
-int write_in_file(std::string msg_sensor_id, std::string msg_time, std::string msg_value);
-std::string read_from_file(std::string sensor_id, int num_datas);
-
-
+// struct dos dados, conforme o enunciado
 #pragma pack(push, 1)
 struct LogRecord {
     char sensor_id[32]; // supondo um ID de sensor de até 32 caracteres
@@ -55,6 +55,20 @@ struct LogRecord {
     double value; // valor da leitura
 };
 #pragma pack(pop)
+
+//declaração das funções 
+int write_in_file(std::string msg_sensor_id, std::string msg_time, std::string msg_value);
+std::string read_from_file(std::string sensor_id, int num_datas);
+
+std::vector<std::string> ids;
+bool id_novo(std::string id){
+  for(int i=0;i<ids.size();i++){
+    if(id==ids[i]){
+      return true;
+    }
+  }
+  return false;
+}
 
 
 // int write_in_file(std::string SensorName, std::string msg_time, std::string msg_value)
@@ -73,7 +87,7 @@ int write_in_file(std::string msg_sensor_id, std::string msg_time, std::string m
 
 		// Recupera o número de registros presentes no arquivo
 		int n = file_size/sizeof(LogRecord);
-		std::cout << "Num records: " << n << " (file size: " << file_size << " bytes)" << std::endl;
+		//std::cout << "Num records: " << n << " (file size: " << file_size << " bytes)" << std::endl;
 
 		// Escreve 10 registros no arquivo
 		// std::cout << "Writing 10 more records..." << std::endl;
@@ -98,7 +112,7 @@ int write_in_file(std::string msg_sensor_id, std::string msg_time, std::string m
 	return(0);
 }
 
-int read_file(std::string sensor_id, int num_records_req)
+std::string read_file(std::string sensor_id, int num_records_req)
 {
 	// Abre o arquivo para leitura e escrita em modo binário e coloca o apontador do arquivo
 	// apontando para o fim de arquivo
@@ -114,7 +128,7 @@ int read_file(std::string sensor_id, int num_records_req)
     
 		// Recupera o número de registros presentes no arquivo
 		int n = file_size/sizeof(LogRecord);
-		std::cout << "Num records: " << n << " (file size: " << file_size << " bytes)" << std::endl;
+		//std::cout << "Num records: " << n << " (file size: " << file_size << " bytes)" << std::endl;
 		
     if (num_records_req > n) num_records_req = n;
 
@@ -123,13 +137,13 @@ int read_file(std::string sensor_id, int num_records_req)
 		// Le o registro selecionado
 		LogRecord rec;
 
-    std::string text_out = "" + num_records_req;
+    std::string text_out = std::to_string(num_records_req);
 
     for (int i=0;i<num_records_req; i++){
       
       file.read((char*)&rec, sizeof(LogRecord));      
       
-      if (i != 0) text_out += ";";
+      text_out += ";";
       text_out += time_t_to_string(rec.timestamp);
       text_out += "|";
       text_out += std::to_string(rec.value);
@@ -142,6 +156,9 @@ int read_file(std::string sensor_id, int num_records_req)
 
 		// Fecha o arquivo
 		file.close();
+
+    return text_out;
+
 	}
 	else
 	{
@@ -154,14 +171,6 @@ int read_file(std::string sensor_id, int num_records_req)
 
 
 
-using boost::asio::ip::tcp;
-bool id_novo(const std::string& id){ return false;
-}
-bool log(const std::string& message){ return false;
-}
-bool get(const std::string& message){ return false;
-    
-}
 class session
   : public std::enable_shared_from_this<session>
 {
@@ -187,35 +196,36 @@ private:
           {
             std::istream is(&buffer_);
             std::string message(std::istreambuf_iterator<char>(is), {});
-           // std::cout << "Received: " << message << std::endl;
-           // write_message(message);
-           std::string msg_type=message.substr(0,3);
-           std::string id=message.substr(0,3);
+            std::vector<std::string> new_message=split_string(message,"|");
+           std::string msg_type=new_message[0];
+           std::string id=new_message[1];
+           if(msg_type=="LOG"){
+          }
+           if(msg_type=="GET"){
+
+            std::string aux=new_message[2];
+              int n_infos =stoi(aux.substr(0,aux.size()-4));
               
-            
-           if(msg_type == "LOG"){
+              std::string rec = read_file(id, n_infos);
+
+              write_message(rec);
+
             if(!id_novo(id)){
-            //Escrita no arquivo
+              
+
             }
-            if(id_novo(id)){
-            //Cria arquivo para o novo sensor
-            //Escrita no arquivo
-            }
-           }
-           else if(msg_type == "GET"){
-            if(!id_novo(id)){//Leitura do arquivo
-            //Envio da informação para o cliente
-            }
-            
             if(id_novo(id)){
             //Envio de mensagem de erro para o cliente
+            std::string error = "ERROR|INVALID_SENSOR_" + id + "\r\n";
+            write_message(error);
             }
            }
-          
-          }
+        }
       
         });
   }
+
+
 
   void write_message(const std::string& message)
   {
@@ -269,16 +279,9 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  /*
-
   boost::asio::io_context io_context;
   server s(io_context, std::atoi(argv[1]));
   io_context.run();
-  // */
-
-  //write_in_file("SENSOR_001", "2023-05-11T15:30:00", "78.5");
-
-  read_file("SENSOR_001", std::atoi(argv[1]));
 
   return 0;
 }
