@@ -57,9 +57,8 @@ struct LogRecord {
 
 //declaração das funções próprias
 int write_in_file(std::string msg_sensor_id, std::string msg_time, std::string msg_value);
-std::string read_from_file(std::string sensor_id, int num_datas);
 bool id_novo(std::string sensor_id);
-std::string read_file(std::string sensor_id, int num_records_req);
+std::string read_from_file(std::string sensor_id, int num_records_req);
 
 
 class session
@@ -83,6 +82,7 @@ private:
     boost::asio::async_read_until(socket_, buffer_, "\r\n",
         [this, self](boost::system::error_code ec, std::size_t length)
         {
+
           if (!ec)
           {
             std::istream is(&buffer_);
@@ -91,14 +91,15 @@ private:
            std::string msg_type=new_message[0];
            std::string id=new_message[1];
            if(msg_type=="LOG"){
-              std::string data_hora = new_message[2];
-              std::string leitura = new_message[3];
+              std::string msg_time = new_message[2];
+              std::string msg_value = new_message[3];
+              write_in_file(id, msg_time, msg_value); //escreve no arquivo dedicado ao sensor. Caso o arquivo não exista, será criado automaticamente
+              write_message("OK"); // resposta de confirmação, para manter a conexão ativa.
           }
-           if(msg_type=="GET"){
+          else if(msg_type=="GET"){
             if(!id_novo(id)){
-              std::string aux=new_message[2];
-              int n_infos =stoi(aux.substr(0,aux.size()-4));
-              std::string rec = read_file(id, n_infos);
+              int n_infos =stoi(new_message[2]);
+              std::string rec = read_from_file(id, n_infos);
               write_message(rec);
             }
             else{
@@ -201,10 +202,7 @@ int write_in_file(std::string msg_sensor_id, std::string msg_time, std::string m
 
 		// Recupera o número de registros presentes no arquivo
 		int n = file_size/sizeof(LogRecord);
-		//std::cout << "Num records: " << n << " (file size: " << file_size << " bytes)" << std::endl;
-
-		// Escreve 10 registros no arquivo
-		// std::cout << "Writing 10 more records..." << std::endl;
+		std::cout << "Num records: " << n << " (file size: " << file_size << " bytes)" << std::endl;
 
 		LogRecord rec;
 
@@ -214,6 +212,9 @@ int write_in_file(std::string msg_sensor_id, std::string msg_time, std::string m
     rec.value = stod(msg_value);
 
     file.write((char*)&rec, sizeof(LogRecord));
+
+		// Imprime o registro
+		std::cout << "Id: "  << rec.sensor_id << " - Timestamp: " << time_t_to_string(rec.timestamp) << " - Value: "<< rec.value << std::endl;
 
 		// Fecha o arquivo
 		file.close();
@@ -226,7 +227,7 @@ int write_in_file(std::string msg_sensor_id, std::string msg_time, std::string m
 	return(0);
 }
 
-std::string read_file(std::string sensor_id, int num_records_req)
+std::string read_from_file(std::string sensor_id, int num_records_req)
 {
 	// Abre o arquivo para leitura e escrita em modo binário e coloca o apontador do arquivo
 	// apontando para o fim de arquivo
@@ -242,7 +243,7 @@ std::string read_file(std::string sensor_id, int num_records_req)
     
 		// Recupera o número de registros presentes no arquivo
 		int n = file_size/sizeof(LogRecord);
-		//std::cout << "Num records: " << n << " (file size: " << file_size << " bytes)" << std::endl;
+		std::cout << "Num records: " << n << " (file size: " << file_size << " bytes)" << std::endl;
 		
     if (num_records_req > n) num_records_req = n;
 
@@ -266,7 +267,7 @@ std::string read_file(std::string sensor_id, int num_records_req)
     text_out += "\r\n";
 
     // Imprime o registro
-    std::cout << text_out << std::endl;
+    // std::cout << "Text readed: " << text_out << std::endl;
 
 		// Fecha o arquivo
 		file.close();
