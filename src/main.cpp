@@ -123,14 +123,22 @@ int read_file(std::string sensor_id, int num_records_req)
 		// Le o registro selecionado
 		LogRecord rec;
 
+    std::string text_out = "" + num_records_req;
+
     for (int i=0;i<num_records_req; i++){
       
       file.read((char*)&rec, sizeof(LogRecord));      
-      // Imprime o registro
-      std::cout << "|"  << rec.sensor_id << ";" << time_t_to_string(rec.timestamp) << "|"<< rec.value << std::endl;
-
+      
+      if (i != 0) text_out += ";";
+      text_out += time_t_to_string(rec.timestamp);
+      text_out += "|";
+      text_out += std::to_string(rec.value);
     }
 
+    text_out += "\r\n";
+
+    // Imprime o registro
+    std::cout << text_out << std::endl;
 
 		// Fecha o arquivo
 		file.close();
